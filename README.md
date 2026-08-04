@@ -28,6 +28,7 @@ Main:AddDropdown({ Name = "Selection", Options = { "A", "B", "C" }, Key = "Selec
 - `win:Notify(title, text, duration, style)` — info / success / warning / error
 - `win:Destroy()` full teardown
 - Window minimize-to-pill morph, draggable title bar
+- Touch support: window drag, slider drag, and dropdown work on mobile executors
 
 ## License
 
