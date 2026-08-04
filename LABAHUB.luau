@@ -1,5 +1,5 @@
 --[[
-	My Own UI — Obsidian x Rayfield design, from scratch.
+	LABA HUB — Obsidian x Rayfield design, from scratch.
 	No library, no loadstring. Every pixel is Instance.new.
 	(c) 2026 <Your Name>. Licensed under LICENSE — no rebranding, no
 	commercial use. See the LICENSE file shipped with this project.
