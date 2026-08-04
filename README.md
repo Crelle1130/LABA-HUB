@@ -1,6 +1,6 @@
 # LABA HUB
 
-A Roblox UI library — Obsidian x Rayfield design, built from scratch. No external library, no `loadstring` of third-party code; every pixel is `Instance.new`.
+A Roblox UI library — built from scratch. No external library, no `loadstring` of third-party code; every pixel is `Instance.new`.
 
 ## Usage
 
