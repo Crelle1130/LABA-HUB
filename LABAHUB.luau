@@ -368,16 +368,16 @@ local function CreateSlider(parent, props)
 	end
 
 	local moveConn = nil
-	local function startDrag(startPos)
+	local function startDrag()
 		local function move(pos)
 			local abs, size = track.AbsolutePosition, track.AbsoluteSize
 			local x = math.clamp(pos.X - abs.X, 0, size.X)
 			Update(min + (max - min) * (x / size.X))
 		end
-		move(startPos)
+		move(UserInputService:GetMouseLocation())
 		moveConn = Track(UserInputService.InputChanged:Connect(function(i)
-			if i.UserInputType == Enum.UserInputType.MouseMovement then
-				move(i.Position)
+			if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
+				move(UserInputService:GetMouseLocation())
 			end
 		end))
 	end
@@ -390,12 +390,14 @@ local function CreateSlider(parent, props)
 		AutoButtonColor = false,
 		ZIndex = 2,
 	}, track).InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			startDrag(input.Position)
-			task.spawn(function()
-				repeat task.wait() until not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
-				if moveConn then moveConn:Disconnect() end
-			end)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			startDrag()
+			local releaseConn = Track(UserInputService.InputEnded:Connect(function(i)
+				if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+					if moveConn then moveConn:Disconnect() end
+					releaseConn:Disconnect()
+				end
+			end))
 		end
 	end)
 
@@ -1036,7 +1038,7 @@ local function CreateDropdown(parent, props)
 	RebuildOptions(options)
 
 	field.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			if menu.Visible then Close() else Open() end
 		end
 	end)
@@ -1265,7 +1267,7 @@ function UI:CreateWindow(config)
 	Rounded(closeBtn, UDim.new(0, 6))
 
 	titleBar.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			local mp = UserInputService:GetMouseLocation()
 			local cb = closeBtn.AbsolutePosition
 			local cs = closeBtn.AbsoluteSize
@@ -1275,7 +1277,7 @@ function UI:CreateWindow(config)
 			local last = mp
 			local conn
 			conn = Track(UserInputService.InputChanged:Connect(function(i)
-				if i.UserInputType == Enum.UserInputType.MouseMovement then
+				if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
 					local cur = UserInputService:GetMouseLocation()
 					local delta = cur - last
 					last = cur
@@ -1285,10 +1287,12 @@ function UI:CreateWindow(config)
 					end
 				end
 			end))
-			task.spawn(function()
-				repeat task.wait() until not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
-				if conn then conn:Disconnect() end
-			end)
+			local releaseConn = Track(UserInputService.InputEnded:Connect(function(i)
+				if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+					if conn then conn:Disconnect() end
+					releaseConn:Disconnect()
+				end
+			end))
 		end
 	end)
 
