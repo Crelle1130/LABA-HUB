@@ -20,6 +20,12 @@
 		tab:AddLabel({ Name, Color, TextSize, Center, Wrap })
 ]]
 
+-- Lua 5.1 polyfills (for Delta & other non-Luau executors)
+if not table.find then table.find = function(t, v) for i = 1, #t do if t[i] == v then return i end end end end
+if not table.clear then table.clear = function(t) for k in pairs(t) do t[k] = nil end end end
+if not math.round then math.round = function(x) return math.floor(x + 0.5) end end
+if not math.clamp then math.clamp = function(x, min, max) return x < min and min or (x > max and max or x) end end
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -97,7 +103,7 @@ local function GetOrigins(root)
 				kind, val = "Text", child.TextTransparency
 			elseif child:IsA("Frame") then
 				kind, val = "BG", child.BackgroundTransparency
-			elseif child:IsA("UIStroke") then
+			elseif child.ClassName == "UIStroke" then
 				kind, val = "Stroke", child.Transparency
 			end
 			if kind then o[child] = { kind = kind, val = val } end
@@ -120,10 +126,11 @@ local function FadeInGui(root, time)
 	end
 	if o.root then Tween(root, { BackgroundTransparency = o.root }, time):Play() end
 	for child, t in pairs(o) do
-		if child == "root" then continue end
-		if t.kind == "Text" then Tween(child, { TextTransparency = t.val }, time):Play()
-		elseif t.kind == "BG" then Tween(child, { BackgroundTransparency = t.val }, time):Play()
-		elseif t.kind == "Stroke" then Tween(child, { Transparency = t.val }, time):Play() end
+		if child ~= "root" then
+			if t.kind == "Text" then Tween(child, { TextTransparency = t.val }, time):Play()
+			elseif t.kind == "BG" then Tween(child, { BackgroundTransparency = t.val }, time):Play()
+			elseif t.kind == "Stroke" then Tween(child, { Transparency = t.val }, time):Play() end
+		end
 	end
 end
 
@@ -134,7 +141,7 @@ local function FadeOutGui(root, time, callback)
 			Tween(child, { TextTransparency = 1 }, time):Play()
 		elseif child:IsA("Frame") then
 			Tween(child, { BackgroundTransparency = 1 }, time):Play()
-		elseif child:IsA("UIStroke") then
+		elseif child.ClassName == "UIStroke" then
 			Tween(child, { Transparency = 1 }, time):Play()
 		end
 	end
@@ -1200,10 +1207,15 @@ function UI:CreateWindow(config)
 	}, titleBar)
 
 	local function ToPill()
+		local pillW, pillH = 120, 34
+		local pillPos = UDim2.new(1, -12, 0, 12)
+		local winMiniPos = UDim2.new(1, -(12 + pillW / 2), 0, 12 + pillH / 2)
+		local shadowMiniPos = winMiniPos + UDim2.fromOffset(0, 8)
+
 		local pill = New("TextButton", {
-			Size = UDim2.fromOffset(120, 34),
-			Position = UDim2.fromScale(0.5, 0),
-			AnchorPoint = Vector2.new(0.5, 0),
+			Size = UDim2.fromOffset(pillW, pillH),
+			Position = pillPos,
+			AnchorPoint = Vector2.new(1, 0),
 			BackgroundColor3 = Theme.AccentDim,
 			FontFace = Theme.FontBold,
 			Text = "◉  " .. (config.Title or "UI"),
@@ -1219,8 +1231,8 @@ function UI:CreateWindow(config)
 		local startShadowPos = shadow.Position
 		local endScale = 0.08
 
-		local windowTween = Tween(window, { Position = UDim2.fromScale(0.5, 0) }, 0.25)
-		local shadowTween = Tween(shadow, { Position = UDim2.fromScale(0.5, 0) + UDim2.fromOffset(0, 8) }, 0.25)
+		local windowTween = Tween(window, { Position = winMiniPos }, 0.25)
+		local shadowTween = Tween(shadow, { Position = shadowMiniPos }, 0.25)
 		local windowScaleTween = Tween(winScale, { Scale = endScale }, 0.25)
 		local shadowScaleTween = Tween(shadowScale, { Scale = endScale }, 0.25)
 		FadeOutGui(window, 0.25, function()
@@ -1234,16 +1246,42 @@ function UI:CreateWindow(config)
 		shadowScaleTween:Play()
 		Tween(pillScale, { Scale = 1 }, 0.25):Play()
 
+		local moved = false
+		pill.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				moved = false
+				local last = UserInputService:GetMouseLocation()
+				local conn
+				conn = Track(UserInputService.InputChanged:Connect(function(i)
+					if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
+						local cur = UserInputService:GetMouseLocation()
+						local delta = cur - last
+						last = cur
+						if delta.Magnitude > 0 then
+							if delta.Magnitude >= 2 then moved = true end
+							pill.Position = pill.Position + UDim2.fromOffset(delta.X, delta.Y)
+						end
+					end
+				end))
+				local releaseConn = Track(UserInputService.InputEnded:Connect(function(i)
+					if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+						if conn then conn:Disconnect() end
+						releaseConn:Disconnect()
+					end
+				end))
+			end
+		end)
+
 		pill.Activated:Connect(function()
-			if not pill.Parent then return end
+			if not pill.Parent or moved then return end
 			Tween(pillScale, { Scale = 0 }, 0.2):Play()
 			FadeOutGui(pill, 0.2, function() if pill.Parent then pill:Destroy() end end)
 			window.Visible = true
 			shadow.Visible = true
 			winScale.Scale = endScale
 			shadowScale.Scale = endScale
-			window.Position = UDim2.fromScale(0.5, 0)
-			shadow.Position = UDim2.fromScale(0.5, 0) + UDim2.fromOffset(0, 8)
+			window.Position = winMiniPos
+			shadow.Position = shadowMiniPos
 			Tween(winScale, { Scale = 1 }, 0.25):Play()
 			Tween(shadowScale, { Scale = 1 }, 0.25):Play()
 			Tween(window, { Position = startPos }, 0.25):Play()
@@ -1433,7 +1471,7 @@ function UI:CreateWindow(config)
 				Tween(child, { TextTransparency = 1 }, 0.18):Play()
 			elseif child:IsA("Frame") then
 				Tween(child, { BackgroundTransparency = 1 }, 0.18):Play()
-			elseif child:IsA("UIStroke") then
+			elseif child.ClassName == "UIStroke" then
 				Tween(child, { Transparency = 1 }, 0.18):Play()
 			end
 		end
