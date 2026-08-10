@@ -1,5 +1,5 @@
 --[[
-	LABA HUB — Obsidian x Rayfield design, from scratch.
+	LABA HUB UI
 	No library, no loadstring. Every pixel is Instance.new.
 	(c) 2026 LABA HUB. Licensed under LICENSE — no rebranding, no
 	commercial use. See the LICENSE file shipped with this project.
