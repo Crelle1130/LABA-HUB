@@ -1,5 +1,5 @@
 --[[
-	LABA HUB UI
+	LABA HUB — Obsidian x Rayfield design, from scratch.
 	No library, no loadstring. Every pixel is Instance.new.
 	(c) 2026 LABA HUB. Licensed under LICENSE — no rebranding, no
 	commercial use. See the LICENSE file shipped with this project.
@@ -21,7 +21,7 @@
 ]]
 
 -- Lua 5.1 polyfills (for Delta & other non-Luau executors)
-if not table.find then table.find = function(t, v) for i = 1, #t do if t[i] == v then return i end end end end
+if not table.find then table.find = function(t, v) for i = 1, #t do if t[i] == v then return i end end; return nil; end end
 if not table.clear then table.clear = function(t) for k in pairs(t) do t[k] = nil end end end
 if not math.round then math.round = function(x) return math.floor(x + 0.5) end end
 if not math.clamp then math.clamp = function(x, min, max) return x < min and min or (x > max and max or x) end end
@@ -399,10 +399,11 @@ local function CreateSlider(parent, props)
 	}, track).InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			startDrag()
-			local releaseConn = Track(UserInputService.InputEnded:Connect(function(i)
+			local releaseConn
+			releaseConn = Track(UserInputService.InputEnded:Connect(function(i)
 				if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-					if moveConn then moveConn:Disconnect() end
-					releaseConn:Disconnect()
+					pcall(function() if moveConn then moveConn:Disconnect() end end)
+					pcall(function() releaseConn:Disconnect() end)
 				end
 			end))
 		end
@@ -532,6 +533,7 @@ local function CreateParagraph(parent, props)
 		PaddingBottom = UDim.new(0, 8),
 	}, box)
 
+	local suppress = false
 	local function SetText(v, noCallback)
 		v = tostring(v or "")
 		if box.Text == v then
@@ -543,8 +545,6 @@ local function CreateParagraph(parent, props)
 		suppress = false
 		if not noCallback and props.Callback then props.Callback(v) end
 	end
-
-	local suppress = false
 	box:GetPropertyChangedSignal("Text"):Connect(function()
 		if suppress then return end
 		if props.Callback then props.Callback(box.Text) end
@@ -1033,7 +1033,8 @@ local function CreateDropdown(parent, props)
 		search.Text = ""
 		RenderOptions()
 		if not multi and not table.find(options, selection) then
-			if #options > 0 then Select(options[1], true) else selection = "" valueLabel.Text = "" end
+			if #options > 0 then Select(options[1], true)
+			else selection = ""; valueLabel.Text = "" end
 		end
 		if multi then UpdateLabel() end
 	end
@@ -1148,6 +1149,10 @@ local function CreateIntro(screen, config, onDone)
 end
 
 function UI:CreateWindow(config)
+	for _, g in ipairs(LocalPlayer.PlayerGui:GetChildren()) do
+		if g:IsA("ScreenGui") and g.Name == "MyObsidianUI" then g:Destroy() end
+	end
+
 	local screen = New("ScreenGui", {
 		Name = "MyObsidianUI",
 		IgnoreGuiInset = true,
@@ -1155,10 +1160,13 @@ function UI:CreateWindow(config)
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 	}, LocalPlayer.PlayerGui)
 
-	New("UIScale", { Scale = config.Scale or 1 }, screen)
+	local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local baseScale = config.Scale or 1
+	local mobileScale = isMobile and math.clamp(workspace.CurrentCamera.ViewportSize.X / 600, 0.55, 0.85) or 1
+	New("UIScale", { Scale = baseScale * mobileScale }, screen)
 
 	local shadow = New("Frame", {
-		Size = config.Size or UDim2.fromOffset(560, 400),
+		Size = isMobile and UDim2.fromOffset(380, 320) or (config.Size or UDim2.fromOffset(560, 400)),
 		Position = (config.Position or UDim2.fromScale(0.5, 0.5)) + UDim2.fromOffset(0, 8),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
@@ -1168,7 +1176,7 @@ function UI:CreateWindow(config)
 	Rounded(shadow, UDim.new(0, 8))
 
 	local window = New("Frame", {
-		Size = config.Size or UDim2.fromOffset(560, 400),
+		Size = isMobile and UDim2.fromOffset(380, 320) or (config.Size or UDim2.fromOffset(560, 400)),
 		Position = config.Position or UDim2.fromScale(0.5, 0.5),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = Theme.Bg,
@@ -1206,10 +1214,14 @@ function UI:CreateWindow(config)
 		ZIndex = 3,
 	}, titleBar)
 
+	local currentTab = nil
+	local pages = {}
+	local lastPillPos = nil
+
 	local function ToPill()
 		local pillW, pillH = 120, 34
-		local pillPos = UDim2.new(1, -12, 0, 12)
-		local winMiniPos = UDim2.new(1, -(12 + pillW / 2), 0, 12 + pillH / 2)
+		local pillPos = lastPillPos or UDim2.new(1, -12, 0, 12)
+		local winMiniPos = UDim2.new(pillPos.X.Scale, pillPos.X.Offset - pillW / 2, pillPos.Y.Scale, pillPos.Y.Offset + pillH / 2)
 		local shadowMiniPos = winMiniPos + UDim2.fromOffset(0, 8)
 
 		local pill = New("TextButton", {
@@ -1235,7 +1247,7 @@ function UI:CreateWindow(config)
 		local shadowTween = Tween(shadow, { Position = shadowMiniPos }, 0.25)
 		local windowScaleTween = Tween(winScale, { Scale = endScale }, 0.25)
 		local shadowScaleTween = Tween(shadowScale, { Scale = endScale }, 0.25)
-		FadeOutGui(window, 0.25, function()
+		FadeOutGui(shadow, 0.25, function()
 			window.Visible = false
 			shadow.Visible = false
 		end)
@@ -1263,16 +1275,18 @@ function UI:CreateWindow(config)
 						end
 					end
 				end))
-				local releaseConn = Track(UserInputService.InputEnded:Connect(function(i)
+				local releaseConn
+				releaseConn = Track(UserInputService.InputEnded:Connect(function(i)
 					if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-						if conn then conn:Disconnect() end
-						releaseConn:Disconnect()
+						lastPillPos = pill.Position
+						pcall(function() if conn then conn:Disconnect() end end)
+						pcall(function() releaseConn:Disconnect() end)
 					end
 				end))
 			end
 		end)
 
-		pill.Activated:Connect(function()
+			pill.Activated:Connect(function()
 			if not pill.Parent or moved then return end
 			Tween(pillScale, { Scale = 0 }, 0.2):Play()
 			FadeOutGui(pill, 0.2, function() if pill.Parent then pill:Destroy() end end)
@@ -1286,8 +1300,15 @@ function UI:CreateWindow(config)
 			Tween(shadowScale, { Scale = 1 }, 0.25):Play()
 			Tween(window, { Position = startPos }, 0.25):Play()
 			Tween(shadow, { Position = startShadowPos }, 0.25):Play()
-			FadeInGui(window, 0.25)
 			FadeInGui(shadow, 0.25)
+			if currentTab then
+				for _, p in ipairs(pages) do
+					p.Page.Visible = (p == currentTab)
+					p.Button.BackgroundColor3 = p == currentTab and Theme.AccentDim or Theme.Panel
+					p.Button.TextColor3 = p == currentTab and Theme.Accent or Theme.Muted
+					p.Bar.BackgroundTransparency = p == currentTab and 0 or 1
+				end
+			end
 		end)
 	end
 
@@ -1325,10 +1346,11 @@ function UI:CreateWindow(config)
 					end
 				end
 			end))
-			local releaseConn = Track(UserInputService.InputEnded:Connect(function(i)
+			local releaseConn
+			releaseConn = Track(UserInputService.InputEnded:Connect(function(i)
 				if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-					if conn then conn:Disconnect() end
-					releaseConn:Disconnect()
+					pcall(function() if conn then conn:Disconnect() end end)
+					pcall(function() releaseConn:Disconnect() end)
 				end
 			end))
 		end
@@ -1344,7 +1366,8 @@ function UI:CreateWindow(config)
 		BackgroundTransparency = 1,
 	}, window)
 
-	local rail = New("Frame", { Size = UDim2.new(0, 160, 1, 0), BackgroundColor3 = Theme.Panel }, body)
+	local railW = isMobile and 110 or 160
+	local rail = New("Frame", { Size = UDim2.new(0, railW, 1, 0), BackgroundColor3 = Theme.Panel }, body)
 	New("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, rail)
 	New("UIPadding", {
 		PaddingTop = UDim.new(0, 12),
@@ -1354,14 +1377,14 @@ function UI:CreateWindow(config)
 	}, rail)
 
 	local content = New("Frame", {
-		Size = UDim2.new(1, -160, 1, 0),
-		Position = UDim2.new(0, 160, 0, 0),
+		Size = UDim2.new(1, -railW, 1, 0),
+		Position = UDim2.new(0, railW, 0, 0),
 		BackgroundTransparency = 1,
 	}, body)
 
-	local pages = {}
 
 	local function SelectTab(tab)
+		currentTab = tab
 		for _, p in ipairs(pages) do
 			p.Page.Visible = (p == tab)
 			Tween(p.Button, { BackgroundColor3 = p == tab and Theme.AccentDim or Theme.Panel }, 0.15):Play()
