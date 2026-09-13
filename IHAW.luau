@@ -9,7 +9,7 @@ if getgenv().IHAW_LOADED then return end
     local HttpService = game:GetService("HttpService")
     local LocalPlayer = Players.LocalPlayer
 
-    local UI = loadstring(readfile("LABAHUB.luau"))()
+    local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Crelle1130/LABA-HUB/refs/heads/main/LABAHUB.luau"))()
     local win = UI:CreateWindow({
         Title = "IHAW",
         Size = UDim2.fromOffset(380, 340),
