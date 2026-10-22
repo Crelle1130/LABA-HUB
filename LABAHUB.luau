@@ -1,26 +1,4 @@
---[[
-	LABA HUB — Obsidian x Rayfield design, from scratch.
-	No library, no loadstring. Every pixel is Instance.new.
-	(c) 2026 LABA HUB. Licensed under LICENSE — no rebranding, no
-	commercial use. See the LICENSE file shipped with this project.
 
-	API:
-		win = UI:CreateWindow({ Title = "…", Size = UDim2.fromOffset(560, 400),
-		Intro = { Title = "…", Subtitle = "…", Duration = 3 } })  -- optional splash
-		win:Destroy()  -- full teardown (conns + ScreenGui + config)
-		tab = win:AddTab("Main")
-		el = tab:AddToggle({ Name, Value, Key, Callback })   el:Get() / el:Set(v)
-		el = tab:AddSlider({ Name, Min, Max, Step, Value, Suffix, Key, Callback })   el:Get() / el:Set(v)
-		el = tab:AddButton({ Name, Callback })
-		el = tab:AddTextBox({ Name, Placeholder, Value, Key, Callback })   el:Get() / el:Set(v) / el:Focus()
-		tab:AddDropdown({ Name, Options, Value, Multi, Key, Callback })
-		tab:AddParagraph({ Name, Placeholder, Value, Key, Callback })   el:Get() / el:Set(v)
-		tab:AddSegmented({ Name, Options, Value, Key, Callback })   el:Get() / el:Set(v)
-		tab:AddList({ Name, Options, Value, Key, Callback })   el:Get() / el:Set(v) / el:SetOptions(list)
-		tab:AddLabel({ Name, Color, TextSize, Center, Wrap })
-]]
-
--- Lua 5.1 polyfills (for Delta & other non-Luau executors)
 if not table.find then table.find = function(t, v) for i = 1, #t do if t[i] == v then return i end end; return nil; end end
 if not table.clear then table.clear = function(t) for k in pairs(t) do t[k] = nil end end end
 if not math.round then math.round = function(x) return math.floor(x + 0.5) end end
